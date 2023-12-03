@@ -1,6 +1,3 @@
-setwd("/Users/doheun/Documents/R/ML/project")
-dir()
-
 ### Boruta
 library(Boruta)
 library(dplyr)
