@@ -13,7 +13,7 @@ getwd()
 dir()
 
 ### load all variables and functions
-#load("result_forecasting.RData")
+load("result_forecasting.RData")
 
 ### load lstm/Bilstm result 
 # load("step6_lstm.Rdata")
@@ -36,6 +36,11 @@ y = as.matrix(y[-1,-1]) # drop the date column(1) and tcode row(1)
 
 APTS_S_12 = as.matrix(diff(log(y[,1]), 12)) # log 1-year differences; dependent variable
 colnames(APTS_S_12) = "Price_APT_S"
+
+date = X[,1]
+
+
+
 
 X = read_excel("transformed_data.xlsx") # load the transformed independent variables
 X = as.matrix(X[,-1]) # drop the date column
