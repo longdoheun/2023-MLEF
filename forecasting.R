@@ -356,7 +356,7 @@ Forecasting <- R6Class("Forecasting", list(
   
   # MCS test
   MCS_test = function(pred){
-    LOSS = (pred - self$real)^2 # squared error
+    LOSS = (pred - self$real)^2 # loss function is squared error
     SSM <- MCSprocedure(LOSS, alpha=0.5, B=5000, statistic="Tmax")
     return(SSM)
   },
@@ -369,7 +369,7 @@ Forecasting <- R6Class("Forecasting", list(
     cat("tgt_model=",self$colnames[tgt_model_idx])
     
     for (model_idx in 1:ncol(pred)) {
-      if (model_idx == tgt_model_idx){ # if it is tgt model, fill NA
+      if (model_idx == tgt_model_idx){ # if it is target model, fill NA
         test[model_idx,1] <- NA
         test[model_idx,2] <- NA
       } else{

@@ -1,5 +1,7 @@
 setwd("/Users/doheun/Documents/R/ML/MLEF_project")
 
+
+### this is for LSTM
 library(reticulate) # reticulate:: using python env
 use_condaenv("upbitpy", required = TRUE) # In my case, conda env name is "upbitpy"
 print(py_config())
@@ -7,10 +9,8 @@ print(py_config())
 
 source("Forecasting.R")
 #==================================================================
-library(readxl)
 # Load Data Set
-getwd()
-dir()
+library(readxl)
 
 ### load all variables and functions
 load("result_forecasting.RData")
@@ -37,12 +37,13 @@ y = as.matrix(y[-1,-1]) # drop the date column(1) and tcode row(1)
 APTS_S_12 = as.matrix(diff(log(y[,1]), 12)) # log 1-year differences; dependent variable
 colnames(APTS_S_12) = "Price_APT_S"
 
+
+
+### load the transformed independent variables
+X = read_excel("transformed_data.xlsx")
+# ======== you can check the tcode transformation in "Tcode_transformation.Rmd" file.=============
+
 date = X[,1]
-
-
-
-
-X = read_excel("transformed_data.xlsx") # load the transformed independent variables
 X = as.matrix(X[,-1]) # drop the date column
 
 Y = cbind(APTS_S_12, X)
@@ -124,13 +125,13 @@ step6.RMSE = step6$get_RMSE(
 step6$MCS_test(step6.pred)
 
 ## Giacomini - White test
-## tgt_model_idx : base model index
+## tgt_model_idx : alternative model index
 tgt_model_idx = which.min(step6.MAE) # MAE 기준
 ## Check all alternative models (10,11,12,13) with benchmarks as Kim and Han (2022)
 step6.GW_lstm = step6$GW_test(step6.pred,10) # LSTM = 10
 step6.GW_bilstm = step6$GW_test(step6.pred, 11) # BiLSTM = 11
 step6.GW_lstm_sel = step6$GW_test(step6.pred,12) # LSTM_sel = 12
-step6.GW_bilstm_sel = step6$GW_test(step6.pred,13) # BiLSTM = 13
+step6.GW_bilstm_sel = step6$GW_test(step6.pred,13) # BiLSTM_sel = 13
 
 #=========================================================
 ## 12-step ahead forecasting
@@ -207,21 +208,20 @@ step12.RMSE = step12$get_RMSE(
   step12.bilstm_sel
 )
 
-
 # MCS test
 step12$MCS_test(step12.pred)
 
 ## Giacomini - White test
-## tgt_model_idx : base model index
+## tgt_model_idx : alternative model index
 tgt_model_idx = which.min(step12.MAE) # MAE 기준일 경우
 
 ## Check all alternative models (10,11,12,13) with benchmarks as Kim and Han (2022)
 step12.GW_lstm = step12$GW_test(step12.pred,10) # LSTM = 10
 step12.GW_bilstm = step12$GW_test(step12.pred, 11) # BiLSTM = 11
 step12.GW_lstm_sel = step12$GW_test(step12.pred,12) # LSTM_sel = 12
-step12.GW_bilstm_sel = step12$GW_test(step12.pred,13) # BiLSTM = 13
+step12.GW_bilstm_sel = step12$GW_test(step12.pred,13) # BiLSTM_sel = 13
 
-# Out-of-sample forecasting
+# Out-of-sample forecasting result for conclusion
 OOS_forecasting = matrix(NA,4,2)
 colnames(OOS_forecasting) <- c("6 month", "12 month")
 rownames(OOS_forecasting) <- c("LSTM", "BiLSTM", "LSTM_sel", "BiLSTM_sel")
@@ -239,5 +239,5 @@ for (i in 1:2){
 }
 
 
-### current save all the variables
+### save all the current variables
 save.image("result_forecasting.RData")

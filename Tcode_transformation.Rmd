@@ -1,0 +1,187 @@
+---
+title: "금융시계열 기말프로젝트"
+author: "강대윤, 길도흔"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fbi)
+library(dplyr)
+library(lmtest)
+library(devtools)
+library(HDeconometrics)
+library(randomForest)
+library(xgboost)
+library(tibble)
+library(MCS)
+library(sandwich)
+library(writexl)
+library(data.table)
+library(urca)
+library(readxl)
+```
+
+### Part 0
+DataKoreaFrom200408To202306WOtcode.csv 파일의 CPI를 제외한 모든 변수의 tcode를 기입하시오.
+
+```{r}
+setwd("/Users/doheun/Documents/R/ML/MLEF_project")
+```
+
+
+### 데이터 불러오기
+```{r}
+data = read_excel("raw_data.xlsx")
+data
+```
+
+### tcode 확인
+```{r}
+ydata <- data$Price_APT__S
+xdata <- data[, colnames(data) != "Price_APT__S"]
+tcode = xdata[1,]  # first element: Transformation code
+xdata = xdata[-1,]
+tcode
+```
+### ADF 검정
+추세가 있는 경우와 없는 경우의 ADF 검정을 모두 진행한 후, 두 결과가 같은 경우에만 result에 저장
+```{r}
+x_list <- colnames(xdata)[-1]
+adf_results <- matrix(NA, 3, 85)
+colnames(adf_results) <- x_list
+rownames(adf_results) <- c("ADF", "ADF_t", "result")
+trend_check <- c()
+
+for (variable in x_list){
+
+  adf <- ur.df(xdata[[variable]], type = "drift") %>% summary()
+  ttest <- abs(adf@teststat[1]) > abs(adf@cval[1, "5pct"])
+  
+  if (ttest) {
+    adf_results[1,variable] <- "안정"
+  } else {
+    adf_results[1,variable] <- "불안정"
+  }
+  
+  adf_t <- ur.df(xdata[[variable]], type = "trend") %>% summary()
+  ttest_t <- abs(adf_t@teststat[1]) > abs(adf_t@cval[1, "5pct"])
+  
+  if (ttest_t) {
+    adf_results[2,variable] <- "안정"
+  } else {
+    adf_results[2,variable] <- "불안정"
+  }
+  
+  if (ttest == ttest_t){
+    adf_results[3,variable] <- adf_results[1,variable]
+  } else{
+    trend_check <- c(trend_check, variable)
+  }
+    
+}
+adf_results %>% as.data.frame()
+```
+### result 확인
+
+일부 변수의 경우 추세가 있는 경우와 없는 경우의 ADF 검정 결과가 다름.
+
+```{r}
+adf_results %>% as.data.frame() %>% select(trend_check)
+```
+### 추세 확인
+육안으로 추세 확인
+
+```{r}
+check_list = colnames(adf_results %>% as.data.frame() %>% select(trend_check))
+par(mfrow = c(2, 3))
+
+for (i in 1:14){
+  plot(xdata[[check_list[i]]], type='l', main = check_list[i], ylab = "")
+}
+```
+
+
+추세가 존재하는 경우 ADF_t의 결과를, 추세가 존재하지 않는 경우 ADF의 결과를 result에 저장
+- 모든 변수에 추세가 존재
+
+```{r, eval= FALSE}
+ADF_list <- c()
+
+for (list in ADF_list){
+  adf_results[3,list] <- adf_results[1,list]
+}
+
+```
+
+```{r}
+ADF_t_list <- check_list
+
+for (list in ADF_t_list){
+  adf_results[3,list] <- adf_results[2,list]
+}
+
+adf_results %>% as.data.frame()
+```
+### 로그변환
+차분을 진행하기 전, rate를 제외한 지수변수들은 로그변환하여 스케일 조정
+
+```{r}
+tcode <- matrix(1, 1, 85)
+colnames(tcode) <- x_list
+rownames(tcode) <- "tcode"
+
+for (list in x_list){
+  if (adf_results["result", list] == "불안정"){
+
+    mean <- xdata[,-1] %>% .[[list]] %>% mean()
+    if (mean > 10){ # 평균이 10 넘는 경우 index로 간주
+      tcode[1, list] <- 5
+    } else{
+      tcode[1, list] <- 2
+    }
+}}
+
+code_table <- tcode %>% as.data.frame() %>% rbind(adf_results) %>% .[-(2:3),]
+code_table
+
+# write_xlsx(code_table, path = "확인용.xlsx")
+```
+
+### 데이터 차분 
+```{r}
+tdata = xdata[-(1:12),]
+tcode <- code_table["tcode", ] %>% cbind("",.)
+
+for (i in 2:ncol(xdata)){
+  if(tcode[i] == 1){
+    tdata[,i] <- xdata[-(1:12),i] %>% as.matrix()
+  } # no transformation  
+  
+  if(tcode[i] == 2){
+    tdata[,i] <- xdata[-(1:12),i] %>% as.matrix()
+  } # no transformation
+  
+  if(tcode[i] == 5){
+    tdata[,i] <- xdata[,i] %>% as.matrix() %>% log() %>% diff(12)
+  } # 전년대비 log differencing
+}
+
+tdata <- tdata %>% mutate(date = date %>% as.integer(),
+                          date = as.Date("1899-12-30") + date)
+tdata
+write_xlsx(tdata, path = "transformed_data.xlsx")
+```
+
+
+
+
+
+
+
+
